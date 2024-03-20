@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "mpi.h"
 
 void caesar_cipher(char *string, int choice, int length, int my_rank) {
@@ -9,8 +10,8 @@ void caesar_cipher(char *string, int choice, int length, int my_rank) {
         shift = -shift;
     }
     for (int i = 0; i < length; i++) {
-        if (string[i] >= 'a' && string[i] <= 'z') {
-            string[i] = 'a' + (string[i] - 'a' + shift + 26) % 26;
+        if (string[i] >= 'a' && string[i] <= 'z') {     
+            string[i] = 'a' + ((((string[i] - 'a') + shift) + 26) % 26);
             printf("Process %d: %c -> %c\n", my_rank, string[i] - shift, string[i]);
         } else if (string[i] >= 'A' && string[i] <= 'Z') {
             string[i] = 'A' + (string[i] - 'A' + shift + 26) % 26;
@@ -49,7 +50,39 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
             scanf(" %s", input_string);
         } else if (choice == 2) {
-            // read the input from a file
+        // read the input from a file
+        // Open the file in read mode
+            FILE *file = fopen("output.txt", "r");
+            if (file != NULL) {
+            // Find the size of the file
+            /*
+                Determine the size of the file by seeking to the end of the file then using ftell(file).
+                the ftell function is used to determine the current position of the file pointer within a file stream
+            */
+                fseek(file, 0, SEEK_END);
+                long file_size = ftell(file);
+                // After that, we seek back to the beginning of the file
+                fseek(file, 0, SEEK_SET); 
+                // Allocate memory for the string
+                char *buffer = (char *)malloc(file_size + 1); // +1 for null terminator    
+                if (buffer != NULL) {
+                    // Read the file into the buffer
+                    size_t bytes_read = fread(buffer, 1, file_size, file);
+                    buffer[bytes_read] = '\0'; // Add null terminator
+                    // Close the file
+                    fclose(file); 
+                    strcpy(input_string, buffer);  
+                    // Free the allocated memory
+                    free(buffer);
+                } else {
+                    // Memory allocation failed
+                    printf("Memory allocation failed.\n");
+                }
+            } else {
+                // File opening failed
+                printf("Failed to open the file.\n");
+            }
+            printf("EncryptedString From File: %s\n", input_string);
         }
         int length = strlen(input_string);
         int piece_sz = length / p;
@@ -64,6 +97,7 @@ int main(int argc, char *argv[]) {
             MPI_Send(&start_indx, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
             MPI_Send(&end_indx, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
             MPI_Send(&input_string[start_indx], end_indx - start_indx, MPI_CHAR, dest, tag, MPI_COMM_WORLD);
+            MPI_Send(&choice, 1, MPI_INT, dest, tag, MPI_COMM_WORLD);
             start_indx = end_indx;
         }
 
@@ -84,6 +118,17 @@ int main(int argc, char *argv[]) {
 
         // Print the processed string
         printf("Processed string: %s\n", input_string);
+        FILE *file = fopen("output.txt", "w");
+        
+        if (file != NULL) {
+            fprintf(file, "%s", input_string);
+            // Close the file
+            fclose(file);
+            printf("String successfully written to the file.\n");
+        } else {
+            // File opening failed
+            printf("Failed to open the file.\n");
+        }
         fflush(stdout);
     } else {
         // Slave processes
@@ -94,8 +139,9 @@ int main(int argc, char *argv[]) {
         // Using separate buffers allows each  process to work on its portion of the data without confusion from other processes.
         // Receive the portion of the string to process
         char input_part[end_indx - start_indx];
-        MPI_Recv(input_part, end_indx - start_indx, MPI_CHAR, 0, tag, MPI_COMM_WORLD, &status);
-
+        MPI_Recv(&input_part, end_indx - start_indx, MPI_CHAR, 0, tag, MPI_COMM_WORLD, &status);
+        
+        MPI_Recv(&choice, 1, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
         // Process the received part
         caesar_cipher(input_part, choice, end_indx - start_indx, my_rank);
 
