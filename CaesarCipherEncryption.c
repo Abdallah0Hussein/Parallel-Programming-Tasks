@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
     int p;
     int tag = 0;
     int choice;
+    int mode;
     char input_string[100];
     MPI_Status status;
     int start_indx, end_indx;
@@ -35,6 +36,17 @@ int main(int argc, char *argv[]) {
 
     if (my_rank == 0) {
         // Master process
+        printf("Choose the program mode:\n1. Input from the console\n2. Input from a file\n");
+        fflush(stdout);
+        scanf("%d", &mode);
+
+        if (mode != 1 && mode != 2){
+            printf("Invalid choice\n");
+            fflush(stdout);
+            MPI_Finalize();
+            return 0;
+        }
+
         printf("Choose an option:\n1. Encrypt\n2. Decrypt\n");
         fflush(stdout);
         scanf("%d", &choice);
@@ -45,14 +57,21 @@ int main(int argc, char *argv[]) {
             MPI_Finalize();
             return 0;
         }
-        if (choice == 1) {
-            printf("Enter text: ");
+        // Console Mode
+        if (mode == 1) {
+            printf("Enter The text to perform: ");
             fflush(stdout);
             scanf(" %s", input_string);
-        } else if (choice == 2) {
-        // read the input from a file
-        // Open the file in read mode
-            FILE *file = fopen("output.txt", "r");
+        // File Mode    
+        }else if (mode == 2) {
+            char* file_name;
+            printf("Enter The name of the text file (without extension): ");
+            fflush(stdout);
+            scanf("%s", file_name);
+            strcat(file_name, ".txt");
+            // read the input from a file
+            // Open the file in read mode
+            FILE *file = fopen(file_name, "r");
             if (file != NULL) {
             // Find the size of the file
             /*
@@ -82,7 +101,7 @@ int main(int argc, char *argv[]) {
                 // File opening failed
                 printf("Failed to open the file.\n");
             }
-            printf("EncryptedString From File: %s\n", input_string);
+            printf("String From File: %s\n", input_string);
         }
         int length = strlen(input_string);
         int piece_sz = length / p;
@@ -118,18 +137,34 @@ int main(int argc, char *argv[]) {
 
         // Print the processed string
         printf("Processed string: %s\n", input_string);
-        FILE *file = fopen("output.txt", "w");
-        
-        if (file != NULL) {
-            fprintf(file, "%s", input_string);
-            // Close the file
-            fclose(file);
-            printf("String successfully written to the file.\n");
-        } else {
-            // File opening failed
-            printf("Failed to open the file.\n");
-        }
-        fflush(stdout);
+
+        // if (mode == 2){
+        //     char* file_name;
+        //     printf("Enter The name of a text file to Save Processed String into (To Exit Press 0): ");
+        //     fflush(stdout);
+        // PROBLEM: CANNOT INTERRUPT TO GET THE INPUT
+        //     scanf("%s", file_name)
+        //     strcat(file_name, ".txt");
+
+        //     if (strcmp(file_name, "0") == 0){
+        //         printf("Okay, Bye :)\n");
+        //         fflush(stdout);
+        //         MPI_Finalize();
+        //         return 0;
+        //     }
+
+        //     FILE *file = fopen(file_name, "w");
+        //     if (file != NULL) {
+        //         fprintf(file, "%s", input_string);
+        //         // Close the file
+        //         fclose(file);
+        //         printf("String successfully written to the file.\n");
+        //     } else {
+        //         // File opening failed
+        //         printf("Failed to open the file.\n");
+        //     }
+        //     fflush(stdout);
+        // }
     } else {
         // Slave processes
         MPI_Recv(&start_indx, 1, MPI_INT, 0, tag, MPI_COMM_WORLD, &status);
