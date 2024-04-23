@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
             scanf(" %s", input_string);
         // File Mode    
         }else if (mode == 2) {
-            char* file_name;
+            char file_name[104];
             printf("Enter The name of the text file (without extension): ");
             fflush(stdout);
             scanf("%s", file_name);
